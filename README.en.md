@@ -1,5 +1,8 @@
 # MyBatis Easy Sync Starter
 
+This is the public source mirror. Maven releases are published only from the separately maintained original repository.
+Maven coordinates and versions are unchanged. Existing commit history and release tags are preserved.
+
 English · [한국어](README.md)
 
 A Java 17 library that removes repetitive CRUD work in MyBatis and helps catch Mapper/XML mismatches. The goal is to keep the SQL you write by hand and automate only the boilerplate.
