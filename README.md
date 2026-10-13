@@ -1,5 +1,8 @@
 # MyBatis Easy Sync Starter
 
+공개 소스 저장소입니다. Maven 배포는 별도로 관리하는 원본 저장소에서만 수행합니다.
+Maven 좌표와 버전은 그대로 유지하며, 기존 커밋 이력과 릴리스 태그를 보존했습니다.
+
 [English](README.en.md) · 한국어
 
 MyBatis에서 반복되는 CRUD 작성과 Mapper/XML 불일치 확인을 돕는 Java 17 기반 라이브러리입니다. 직접 작성한 SQL을 유지하면서 반복 작업만 자동화하는 것이 목표입니다.

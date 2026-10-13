@@ -30,7 +30,7 @@ subprojects {
             }
 
             pom {
-                url = 'https://github.com/MycroCosmo/mybatis-easy-sync-starter'
+                url = 'https://github.com/MycroCosmo/mybatis-easy-sync-starter-public'
                 inceptionYear = '2026'
                 licenses {
                     license {
@@ -47,9 +47,9 @@ subprojects {
                     }
                 }
                 scm {
-                    url = 'https://github.com/MycroCosmo/mybatis-easy-sync-starter'
-                    connection = 'scm:git:git://github.com/MycroCosmo/mybatis-easy-sync-starter.git'
-                    developerConnection = 'scm:git:ssh://git@github.com/MycroCosmo/mybatis-easy-sync-starter.git'
+                    url = 'https://github.com/MycroCosmo/mybatis-easy-sync-starter-public'
+                    connection = 'scm:git:git://github.com/MycroCosmo/mybatis-easy-sync-starter-public.git'
+                    developerConnection = 'scm:git:ssh://git@github.com/MycroCosmo/mybatis-easy-sync-starter-public.git'
                 }
             }
         }
