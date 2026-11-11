@@ -4,6 +4,8 @@ MyBatis에서 반복되는 CRUD 작성과 Mapper/XML 불일치 확인을 돕는 
 
 [English](README.en.md) · 한국어
 
+[공개 소스 저장소](https://github.com/MycroCosmo/mybatis-easy-sync-starter-public) · Maven Central 1.0.3: [core](https://central.sonatype.com/artifact/io.github.mycrocosmo/mybatis-easy-core/1.0.3) · [processor](https://central.sonatype.com/artifact/io.github.mycrocosmo/mybatis-easy-processor/1.0.3)
+
 ## 모듈
 
 | 모듈 | 역할 |
