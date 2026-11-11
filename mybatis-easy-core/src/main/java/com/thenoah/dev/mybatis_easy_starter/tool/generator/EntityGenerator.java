@@ -34,6 +34,17 @@ public class EntityGenerator {
     private static final Logger log = LoggerFactory.getLogger(EntityGenerator.class);
 
     private static final Pattern FIELD_PATTERN = Pattern.compile("private\\s+([\\w\\.<>]+)\\s+(\\w+)\\s*;");
+    private static final Pattern LOMBOK_DATA_PATTERN = Pattern.compile("(?m)^\\s*@(?:lombok\\.)?Data\\b");
+
+    private final boolean useLombok;
+
+    public EntityGenerator() {
+        this(false);
+    }
+
+    public EntityGenerator(boolean useLombok) {
+        this.useLombok = useLombok;
+    }
 
     private static final String ADDED_MARK = "// Added from DB column";
     private static final String DELETED_MARK_PREFIX = "// [DELETED FROM DB] Column '";
@@ -223,10 +234,10 @@ public class EntityGenerator {
         sb.append("package ").append(basePackage).append(";\n\n")
                 .append("import com.thenoah.dev.mybatis_easy_starter.core.annotation.*;\n")
                 .append("import org.apache.ibatis.type.Alias;\n")
-                .append("import lombok.Data;\n")
+                .append(useLombok ? "import lombok.Data;\n" : "")
                 .append("import java.time.*;\n")
                 .append("import java.math.*;\n\n")
-                .append("@Data\n")
+                .append(useLombok ? "@Data\n" : "")
                 .append("@Alias(\"").append(aliasName).append("\")\n")
                 .append("@Table(name = \"").append(tableName).append("\")\n")
                 .append("public class ").append(className).append(" {\n\n");
@@ -240,7 +251,7 @@ public class EntityGenerator {
             if ("id".equalsIgnoreCase(colName)) {
                 sb.append("    @Id\n");
             }
-            sb.append("    private ").append(javaType).append(" ").append(fieldName).append(";\n\n");
+            appendField(sb, javaType, fieldName, "", !useLombok);
         }
 
         // Added 블록 기본 생성
@@ -355,7 +366,8 @@ public class EntityGenerator {
 
         // Added 필드는 고정 블록 내부에만 추가
         if (!effectiveAdded.isEmpty()) {
-            String updated = upsertAddedFieldsBlock(content, effectiveAdded, dbFieldTypes);
+            boolean withAccessors = !LOMBOK_DATA_PATTERN.matcher(content).find();
+            String updated = upsertAddedFieldsBlock(content, effectiveAdded, dbFieldTypes, withAccessors);
             if (!updated.equals(content)) {
                 content = updated;
                 changed = true;
@@ -386,7 +398,8 @@ public class EntityGenerator {
 
     private String upsertAddedFieldsBlock(String content,
                                          Set<String> effectiveAdded,
-                                         Map<String, String> dbFieldTypes) {
+                                         Map<String, String> dbFieldTypes,
+                                         boolean withAccessors) {
 
         if (content == null || content.isBlank()) return content;
 
@@ -401,8 +414,7 @@ public class EntityGenerator {
                 if (alreadyDeclared.contains(dbFieldName)) continue;
 
                 String dbJavaType = dbFieldTypes.getOrDefault(dbFieldName, "String");
-                append.append("    private ").append(dbJavaType).append(" ").append(dbFieldName).append("; ")
-                        .append(ADDED_MARK).append("\n\n");
+                appendField(append, dbJavaType, dbFieldName, " " + ADDED_MARK, withAccessors);
             }
 
             if (append.isEmpty()) return content;
@@ -417,13 +429,28 @@ public class EntityGenerator {
         StringBuilder fields = new StringBuilder();
         for (String dbFieldName : effectiveAdded) {
             String dbJavaType = dbFieldTypes.getOrDefault(dbFieldName, "String");
-            fields.append("    private ").append(dbJavaType).append(" ").append(dbFieldName).append("; ")
-                    .append(ADDED_MARK).append("\n\n");
+            appendField(fields, dbJavaType, dbFieldName, " " + ADDED_MARK, withAccessors);
         }
         if (fields.isEmpty()) return content;
 
         String block = "\n" + ADDED_BLOCK_BEGIN + "\n" + fields + ADDED_BLOCK_END + "\n";
         return content.substring(0, lastBrace).trim() + block + "}\n";
+    }
+
+    private void appendField(StringBuilder target, String javaType, String fieldName,
+                             String fieldSuffix, boolean withAccessors) {
+        target.append("    private ").append(javaType).append(" ").append(fieldName).append(";")
+                .append(fieldSuffix).append("\n\n");
+        if (!withAccessors) return;
+
+        String accessorName = fieldName.substring(0, 1).toUpperCase(Locale.ROOT) + fieldName.substring(1);
+        target.append("    public ").append(javaType).append(" get").append(accessorName).append("() {\n")
+                .append("        return ").append(fieldName).append(";\n")
+                .append("    }\n\n")
+                .append("    public void set").append(accessorName).append("(")
+                .append(javaType).append(" ").append(fieldName).append(") {\n")
+                .append("        this.").append(fieldName).append(" = ").append(fieldName).append(";\n")
+                .append("    }\n\n");
     }
 
     private Map<String, String> detectRenamePairs(Set<String> deletedCandidates,

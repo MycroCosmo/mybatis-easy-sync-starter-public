@@ -99,6 +99,7 @@ public class MybatisEasyProperties {
   // ------------------------------------------------------------
   public static class Generator {
     private boolean enabled = false;
+    private boolean useLombok = false;
 
     /**
      * 2중 스위치: enabled=true + allowWrite=true에서만 파일 쓰기 허용
@@ -116,6 +117,9 @@ public class MybatisEasyProperties {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isUseLombok() { return useLombok; }
+    public void setUseLombok(boolean useLombok) { this.useLombok = useLombok; }
 
     public boolean isAllowWrite() { return allowWrite; }
     public void setAllowWrite(boolean allowWrite) { this.allowWrite = allowWrite; }
