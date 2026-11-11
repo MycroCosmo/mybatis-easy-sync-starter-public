@@ -1,11 +1,8 @@
 # MyBatis Easy Sync Starter
 
-This is the public source mirror. Maven releases are published only from the separately maintained original repository.
-Maven coordinates and versions are unchanged. Existing commit history and release tags are preserved.
+A Java 17 library that removes repetitive CRUD work in MyBatis and helps catch Mapper/XML mismatches. The goal is to keep the SQL you write by hand and automate only the boilerplate.
 
 English · [한국어](README.md)
-
-A Java 17 library that removes repetitive CRUD work in MyBatis and helps catch Mapper/XML mismatches. The goal is to keep the SQL you write by hand and automate only the boilerplate.
 
 ## Modules
 
@@ -18,7 +15,7 @@ Runtime SQL merging and compile-time validation are separate features. Stubs gen
 
 ## Installation (local Maven repository)
 
-Requires JDK 17 and the Gradle wrapper in this repository. Both modules are released with the same version (`1.0.3`). The steps below do not assume the artifacts are published to a public repository.
+Requires JDK 17 and the Gradle wrapper in this repository. The existing Maven Central release is `1.0.3` for both modules. The current source's Lombok option, pagination bounds and error propagation improvements have not been published in a new release. Build the current source locally to try these changes. The source version remains `1.0.3`, so `mavenLocal()` takes precedence over Central in the configuration below.
 
 In this repository:
 
@@ -160,17 +157,41 @@ Runtime AutoSQL generation and the processor's XML check run at different times.
 
 The JDBC-metadata source generator modifies local files. The auto-configuration requires `generator.enabled`, `generator.allow-write` and a development-environment check. Keep it disabled in production, and review the Git diff before and after generation even locally.
 
+New entities default to fields and public getters/setters that compile without Lombok. Synchronizing additional columns also generates accessors. This default mode does not generate `equals`, `hashCode` or `toString`.
+
+If consumers depend on Lombok `@Data` value equality or string representations, opt into the previous generation style:
+
+```yaml
+mybatis-easy:
+  generator:
+    use-lombok: true # Default: false. The separate file-writing safeguards still apply.
+```
+
+This mode emits `import lombok.Data` and `@Data`, so the consumer must configure Lombok and its annotation processor. Direct callers can use `new EntityGenerator(true)`.
+
+Existing classes with `@Data` or `@lombok.Data` retain their style regardless of this option, without adding duplicate accessors for new columns. Existing plain Java classes receive accessors. Existing Lombok classes are not automatically converted to plain Java; preserve custom changes and migrate them separately before removing Lombok.
+
 ## Database support
 
 | Database | Status |
 | --- | --- |
-| H2 | Integration tests (real CRUD) pass |
-| PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite | Dialect-specific SQL strings are unit-tested. **Not verified against a real database**; check in your own project before adopting |
+| H2 | Integration tests cover real CRUD and pagination boundary queries |
+| PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite | Tests cover dialect-specific SQL strings, MyBatis XML parsing and pagination parameter binding. **Not verified against a real database**; check in your own project before adopting |
 
 ## Scope of verification
 
 ```bash
-./gradlew test
+./gradlew clean build
 ```
 
 Test results are not the same as compile and DB CRUD results in your own project. This README describes the conditions for installation and activation and does not guarantee compatibility with every database and Spring Boot combination. This is not an ORM with a persistence context or entity lifecycle like JPA.
+
+Regression tests compile consumer code against the core JAR and its runtime dependencies, and compile consumers of newly generated and synchronized entity accessors without Lombok. SQL tests preserve user-defined statement precedence while checking pagination bounds and error propagation.
+
+`findPage` clamps negative offsets to 0 and limits below 1 to 1, with `mybatis-easy.pagination.max-page-size` as the upper bound. Metadata failures during SQL generation propagate through auto-configuration as an `IllegalStateException` containing the entity name and original cause.
+
+## Repository maintenance
+
+The public source repository is [mybatis-easy-sync-starter-public](https://github.com/MycroCosmo/mybatis-easy-sync-starter-public). Maven publishing and Secrets are managed only in the separately maintained private original repository.
+
+The public mirror excludes the release workflow and keeps GitHub Actions disabled. Maven coordinates stay unchanged. Source changes and new releases are separate steps; see [RELEASING.md](RELEASING.md) for the repository's operating rules.
