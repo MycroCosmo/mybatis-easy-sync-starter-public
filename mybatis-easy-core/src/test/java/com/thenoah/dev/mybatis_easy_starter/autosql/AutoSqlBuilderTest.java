@@ -3,11 +3,18 @@ package com.thenoah.dev.mybatis_easy_starter.autosql;
 import com.thenoah.dev.mybatis_easy_starter.config.MybatisEasyProperties;
 import com.thenoah.dev.mybatis_easy_starter.config.MybatisEasyProperties.Pagination.FindAll.Policy;
 import com.thenoah.dev.mybatis_easy_starter.tool.generator.AutoSqlBuilder;
+import java.io.StringReader;
+import java.util.Map;
+import org.apache.ibatis.builder.xml.XMLMapperBuilder;
+import org.apache.ibatis.mapping.BoundSql;
+import org.apache.ibatis.session.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** DB 없이 생성되는 SQL 문자열만 검증하는 방언별 단위 테스트 */
 class AutoSqlBuilderTest {
@@ -24,22 +31,67 @@ class AutoSqlBuilderTest {
 
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(delimiter = '|', value = {
-            "postgresql           | OFFSET #{offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
-            "h2                   | OFFSET #{offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
-            "unknown              | OFFSET #{offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
-            "microsoft sql server | OFFSET #{offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
-            "mysql                | LIMIT #{__limit} OFFSET #{offset}",
-            "mariadb              | LIMIT #{__limit} OFFSET #{offset}",
-            "oracle               | WHERE rn > #{offset}"
+            "postgresql           | OFFSET #{__offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
+            "h2                   | OFFSET #{__offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
+            "unknown              | OFFSET #{__offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
+            "microsoft sql server | OFFSET #{__offset} ROWS FETCH NEXT #{__limit} ROWS ONLY",
+            "mysql                | LIMIT #{__limit} OFFSET #{__offset}",
+            "mariadb              | LIMIT #{__limit} OFFSET #{__offset}",
+            "oracle               | WHERE rn > #{__offset}"
     })
     void findPageUsesDialectSyntax(String db, String expected) {
         assertThat(build(Member.class, props(), db)).contains(expected);
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"mysql", "mariadb", "postgresql", "h2", "sqlite", "microsoft sql server", "oracle", "unknown"})
+    void paginationBindsBoundedArguments(String db) {
+        MybatisEasyProperties p = props();
+        p.getPagination().setMaxPageSize(50);
+        p.getPagination().getFindAll().setPolicy(Policy.CAP);
+        p.getPagination().getFindAll().setCap(5);
+        String xml = """
+                <?xml version="1.0" encoding="UTF-8" ?>
+                <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+                    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+                <mapper namespace="generated.Mapper">
+                """ + build(Member.class, p, db) + "</mapper>";
+        Configuration configuration = new Configuration();
+        new XMLMapperBuilder(new StringReader(xml), configuration, "generated.xml",
+                configuration.getSqlFragments()).parse();
+
+        long[][] cases = {{-5, 0, 0, 1}, {0, -3, 0, 1}, {4, 100, 4, 50}, {2, 7, 2, 7}};
+        for (long[] sample : cases) {
+            BoundSql sql = configuration.getMappedStatement("generated.Mapper.findPage")
+                    .getBoundSql(Map.of("offset", sample[0], "limit", (int) sample[1]));
+            assertThat(sql.getParameterMappings()).extracting(mapping -> mapping.getProperty())
+                    .contains("__offset", "__limit").doesNotContain("offset", "limit");
+            assertThat(((Number) sql.getAdditionalParameter("__offset")).longValue()).isEqualTo(sample[2]);
+            assertThat(((Number) sql.getAdditionalParameter("__limit")).longValue()).isEqualTo(sample[3]);
+        }
+    }
+
+    @Test
+    void configuredDialectOverridesDatabaseName() {
+        MybatisEasyProperties p = props();
+        p.getPagination().setDialect(MybatisEasyProperties.Pagination.Dialect.POSTGRES);
+
+        assertThat(build(Member.class, p, "mysql"))
+                .contains("ROWS FETCH NEXT").doesNotContain("LIMIT #{__limit}");
+    }
+
+    @Test
+    void invalidEntityMetadataFailsWithItsOriginalCause() {
+        assertThatThrownBy(() -> AutoSqlBuilder.build(null, "", props(), "h2"))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("<null>")
+                .hasCauseInstanceOf(IllegalArgumentException.class);
+    }
+
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(delimiter = '|', value = {
             "microsoft sql server | SELECT TOP (5)",
-            "oracle               | ROWNUM <= 5",
+            "oracle               | ROWNUM &lt;= 5",
             "mysql                | LIMIT 5",
             "postgresql           | FETCH FIRST 5 ROWS ONLY"
     })

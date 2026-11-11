@@ -188,6 +188,8 @@ public class MybatisEasyAutoConfiguration {
               merged.getBytes(StandardCharsets.UTF_8),
               "MyBatis-Easy virtual mapper: " + filename + " (" + namespace + ")"
           ));
+        } catch (IllegalStateException e) {
+          throw e;
         } catch (Exception e) {
           log.warn("MyBatis-Easy: Failed to process mapper xml: {}", res.getDescription(), e);
           virtualResources.add(res);
@@ -383,6 +385,8 @@ public class MybatisEasyAutoConfiguration {
     } catch (ClassNotFoundException e) {
       log.debug("MyBatis-Easy: namespace is not a class: {}", namespace);
       return "";
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.warn("MyBatis-Easy: auto sql generation failed for namespace={}", namespace, e);
       return "";
