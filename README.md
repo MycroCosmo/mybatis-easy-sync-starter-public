@@ -1,11 +1,8 @@
 # MyBatis Easy Sync Starter
 
-공개 소스 저장소입니다. Maven 배포는 별도로 관리하는 원본 저장소에서만 수행합니다.
-Maven 좌표와 버전은 그대로 유지하며, 기존 커밋 이력과 릴리스 태그를 보존했습니다.
+MyBatis에서 반복되는 CRUD 작성과 Mapper/XML 불일치 확인을 돕는 Java 17 기반 라이브러리입니다. 직접 작성한 SQL을 유지하면서 반복 작업만 자동화하는 것이 목표입니다.
 
 [English](README.en.md) · 한국어
-
-MyBatis에서 반복되는 CRUD 작성과 Mapper/XML 불일치 확인을 돕는 Java 17 기반 라이브러리입니다. 직접 작성한 SQL을 유지하면서 반복 작업만 자동화하는 것이 목표입니다.
 
 ## 모듈
 
@@ -18,7 +15,7 @@ MyBatis에서 반복되는 CRUD 작성과 Mapper/XML 불일치 확인을 돕는 
 
 ## 설치 — 로컬 Maven 저장소 기준
 
-JDK 17과 저장소에 포함된 Gradle Wrapper를 준비합니다. core와 processor는 같은 버전(`1.0.3`)으로 함께 배포됩니다. 아래는 공개 패키지 저장소의 배포 성공을 전제하지 않는 로컬 설치 절차입니다.
+JDK 17과 저장소에 포함된 Gradle Wrapper를 준비합니다. Maven Central의 기존 배포본은 core와 processor 모두 `1.0.3`입니다. 현재 소스의 Lombok 선택 옵션과 SQL 경계값·오류 전파 개선은 아직 새 버전으로 배포하지 않았습니다. 이 동작을 확인하려면 아래 절차로 현재 소스를 로컬 빌드해 사용하세요. 소스의 버전 값은 `1.0.3`으로 유지되어 있으므로 `mavenLocal()`이 Central보다 먼저 적용됩니다.
 
 라이브러리 저장소 루트:
 
@@ -153,6 +150,8 @@ int deleteById(ID id);
 
 이 블록은 인터페이스 시그니처 요약입니다. 결과가 커질 수 있는 테이블에서는 무제한 `findAll()` 대신 페이지 조회를 사용하세요. DB별 SQL 호환성과 사용자 XML 우선 정책은 소비자 프로젝트에서 검증해야 합니다.
 
+`findPage`는 음수 offset을 0으로, 1보다 작은 limit을 1로 보정하며 `mybatis-easy.pagination.max-page-size`를 상한으로 사용합니다. SQL 생성 중 메타데이터 분석이 실패하면 엔티티 이름과 원인 예외를 포함한 `IllegalStateException`이 자동 구성 호출부까지 전달됩니다.
+
 ## 선택 사항: Mapper/XML 컴파일 검증
 
 Processor는 missing statement, orphan statement, XML ID와 충돌하는 메서드 오버로딩을 검사합니다.
@@ -179,17 +178,39 @@ tasks.withType(JavaCompile).configureEach {
 
 JDBC 메타데이터를 이용한 소스 생성기는 로컬 파일을 수정합니다. 현재 자동 구성은 `generator.enabled`, `generator.allow-write`, 개발 환경 판정을 함께 확인합니다. 운영에서는 비활성화하고, 로컬에서 켜더라도 생성 전후 Git diff를 검토하세요.
 
+새 엔티티는 기본적으로 Lombok 없이 컴파일되는 필드와 public getter/setter를 생성합니다. 컬럼을 추가해 동기화할 때도 접근자를 함께 만듭니다. 이 기본 모드는 `equals`, `hashCode`, `toString`을 생성하지 않습니다.
+
+기존 Lombok `@Data`의 값 비교·문자열 표현 등에 의존한다면 다음 옵션으로 기존 생성 방식을 선택할 수 있습니다.
+
+```yaml
+mybatis-easy:
+  generator:
+    use-lombok: true # 기본 false. 파일 쓰기 허용 조건은 별도로 충족해야 합니다.
+```
+
+이 모드는 `import lombok.Data`와 `@Data`를 생성하므로 소비자 프로젝트에 Lombok 의존성과 annotation processor 설정이 필요합니다. 생성기를 직접 호출할 때는 `new EntityGenerator(true)`를 사용합니다.
+
+이미 존재하는 `@Data` 또는 `@lombok.Data` 클래스는 옵션과 관계없이 해당 스타일을 유지하며, 새 컬럼에 중복 접근자를 만들지 않습니다. 기존 일반 Java 클래스에는 접근자를 추가합니다. 기존 Lombok 클래스를 일반 Java로 자동 변환하지 않으므로 의존성을 제거하려면 사용자 수정 사항을 보존한 뒤 별도로 전환해야 합니다.
+
 ## DB 지원 범위
 
 | DB | 상태 |
 | --- | --- |
-| H2 | 통합 테스트(실제 CRUD) 통과 |
-| PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite | 방언별 SQL 생성 문자열을 단위 테스트로 확인. **실제 DB 실행은 검증하지 않았으므로** 도입 전에 소비자 프로젝트에서 확인하세요. |
+| H2 | 통합 테스트(실제 CRUD와 페이지 경계값 조회) 통과 |
+| PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, SQLite | 방언별 SQL 생성 문자열, MyBatis XML 파싱 및 페이지 인자 바인딩을 확인. **실제 DB 실행은 검증하지 않았으므로** 도입 전에 소비자 프로젝트에서 확인하세요. |
 
 ## 검증 범위
 
 ```bash
-./gradlew test
+./gradlew clean build
 ```
 
 테스트 실행 결과와 실제 소비자 프로젝트의 컴파일·DB CRUD 결과는 구분해야 합니다. 이 README는 설치·활성화에 필요한 조건을 설명하며, 모든 DB·Spring Boot 조합의 호환성을 보장하지 않습니다. JPA의 영속성 컨텍스트나 엔티티 생명주기를 제공하는 ORM을 목표로 하지 않습니다.
+
+회귀 테스트는 core JAR와 런타임 의존성만으로 소비자 코드를 컴파일하고, 생성·동기화한 엔티티의 접근자를 사용하는 코드도 Lombok 없이 컴파일합니다. SQL 테스트는 기존 사용자 statement 우선 정책을 유지하면서 페이지 인자 보정과 생성 오류 전파를 검증합니다.
+
+## 저장소 운영
+
+공개 소스 저장소는 [mybatis-easy-sync-starter-public](https://github.com/MycroCosmo/mybatis-easy-sync-starter-public)입니다. Maven 배포와 Secrets는 별도로 관리하는 비공개 원본 저장소에서만 관리합니다.
+
+공개본에는 배포 워크플로를 추가하지 않으며 GitHub Actions 비활성화 설정을 유지합니다. Maven 좌표는 그대로 사용합니다. 소스 변경과 새 버전 배포는 별도 절차이며, 운영 규칙은 [RELEASING.md](RELEASING.md)를 참고하세요.

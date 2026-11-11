@@ -188,6 +188,8 @@ public class MybatisEasyAutoConfiguration {
               merged.getBytes(StandardCharsets.UTF_8),
               "MyBatis-Easy virtual mapper: " + filename + " (" + namespace + ")"
           ));
+        } catch (IllegalStateException e) {
+          throw e;
         } catch (Exception e) {
           log.warn("MyBatis-Easy: Failed to process mapper xml: {}", res.getDescription(), e);
           virtualResources.add(res);
@@ -216,24 +218,25 @@ public class MybatisEasyAutoConfiguration {
   @ConditionalOnProperty(name = PROP_GENERATOR_ENABLED, havingValue = "true")
   public EntityGenerator entityGenerator(DataSource dataSource, MybatisEasyProperties props) {
     MybatisEasyProperties.Generator g = props.getGenerator();
+    EntityGenerator generator = new EntityGenerator(g.isUseLombok());
 
     boolean allowWrite = g.isAllowWrite();
     boolean isDevEnv = isClearlyDevEnvironment(env);
 
     if (!g.isEnabled()) {
       log.warn("MyBatis-Easy: generator.enabled=false (props). skip generation.");
-      return new EntityGenerator();
+      return generator;
     }
 
     if (!allowWrite) {
       log.warn("MyBatis-Easy: generator.allow-write=false. File write is blocked (local dev only).");
-      return new EntityGenerator();
+      return generator;
     }
 
     if (!isDevEnv) {
       log.warn("MyBatis-Easy: generator.allow-write=true but environment is NOT recognized as dev. " +
           "Blocked. (need active profile 'local' OR .git under user.dir)");
-      return new EntityGenerator();
+      return generator;
     }
 
     boolean useDbFolder = g.isUseDbFolder();
@@ -243,7 +246,6 @@ public class MybatisEasyAutoConfiguration {
     String appBasePackage = packages.isEmpty() ? "" : packages.get(0);
     String basePackage = appBasePackage.isBlank() ? "" : appBasePackage + ".vo";
 
-    EntityGenerator generator = new EntityGenerator();
     generator.generate(
         dataSource,
         basePackage,
@@ -383,6 +385,8 @@ public class MybatisEasyAutoConfiguration {
     } catch (ClassNotFoundException e) {
       log.debug("MyBatis-Easy: namespace is not a class: {}", namespace);
       return "";
+    } catch (IllegalStateException e) {
+      throw e;
     } catch (Exception e) {
       log.warn("MyBatis-Easy: auto sql generation failed for namespace={}", namespace, e);
       return "";

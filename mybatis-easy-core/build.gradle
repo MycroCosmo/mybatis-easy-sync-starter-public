@@ -26,7 +26,14 @@ dependencies {
     testRuntimeOnly 'com.h2database:h2'
 }
 
-tasks.named('test') { useJUnitPlatform() }
+tasks.named('test') {
+    useJUnitPlatform()
+    dependsOn tasks.named('jar')
+    doFirst {
+        systemProperty 'consumer.classpath', files(tasks.named('jar').flatMap { it.archiveFile },
+                configurations.runtimeClasspath).asPath
+    }
+}
 
 mavenPublishing {
     coordinates(project.group.toString(), 'mybatis-easy-core', project.version.toString())
