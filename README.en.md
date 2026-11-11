@@ -4,6 +4,8 @@ A Java 17 library that removes repetitive CRUD work in MyBatis and helps catch M
 
 English · [한국어](README.md)
 
+[Public source repository](https://github.com/MycroCosmo/mybatis-easy-sync-starter-public) · Maven Central 1.0.3: [core](https://central.sonatype.com/artifact/io.github.mycrocosmo/mybatis-easy-core/1.0.3) · [processor](https://central.sonatype.com/artifact/io.github.mycrocosmo/mybatis-easy-processor/1.0.3)
+
 ## Modules
 
 | Module | Role |
